@@ -127,7 +127,8 @@ function addItemQuad(group, o) {
   const corners = [
     [x, y + s, z], [x + s, y + s, z], [x + s, y, z], [x, y, z],
   ];
-  const uvs = [[0, 0], [1, 0], [1, 1], [0, 1]];
+  // u flipped so the icon reads un-mirrored from the model's front (-Z view)
+  const uvs = [[1, 0], [0, 0], [0, 1], [1, 1]];
   const base = group.verts.length / 6;
   for (let i = 0; i < 4; i++) {
     let p = corners[i];
@@ -154,17 +155,17 @@ function playerParts(slim) {
   ];
 }
 
-const STAND_PARTS = [ // armorstand.png (64x64)
-  { box: [-6, 0, -6, 12, 1, 12], uv: [0, 32] },   // base plate
-  { box: [-3, 1, -1, 2, 11, 2],  uv: [8, 0] },    // right leg
-  { box: [1, 1, -1, 2, 11, 2],   uv: [40, 16] },  // left leg
-  { box: [-4, 11, -1, 8, 2, 2],  uv: [0, 48] },   // hip bar
-  { box: [-2, 13, -1, 2, 7, 2],  uv: [16, 0] },   // right body stick
-  { box: [0, 13, -1, 2, 7, 2],   uv: [48, 16] },  // left body stick
-  { box: [-6, 21, -1.5, 12, 3, 3], uv: [0, 26] }, // shoulder bar
-  { box: [-6, 14, -1, 2, 12, 2], uv: [24, 0] },   // right arm
-  { box: [4, 14, -1, 2, 12, 2],  uv: [32, 16] },  // left arm
-  { box: [-1, 24, -1, 2, 7, 2],  uv: [0, 0] },    // neck/head stick
+// Vanilla ArmorStandModel part positions (armorstand.png, 64x64).
+// Real stands have no visible arms and a gap between the body sticks.
+const STAND_PARTS = [
+  { box: [-6, 0, -6, 12, 1, 12],   uv: [0, 32] },  // base plate
+  { box: [-2.9, 1, -1, 2, 11, 2],  uv: [8, 0] },   // right leg
+  { box: [0.9, 1, -1, 2, 11, 2],   uv: [40, 16] }, // left leg
+  { box: [-4, 12, -1, 8, 2, 2],    uv: [0, 48] },  // waist bar
+  { box: [-3, 14, -1, 2, 7, 2],    uv: [16, 0] },  // right body stick
+  { box: [1, 14, -1, 2, 7, 2],     uv: [48, 16] }, // left body stick
+  { box: [-6, 21, -1.5, 12, 3, 3], uv: [0, 26] },  // shoulder bar
+  { box: [-1, 24, -1, 2, 7, 2],    uv: [0, 0] },   // neck/head stick
 ];
 
 // armor boxes per piece: [box, uv, inflate, mirrorLeft]
@@ -378,13 +379,16 @@ function createViewer(canvas) {
       }
     }
 
-    // held item: quad anchored at the right hand, angled like a held tool
+    // Held item: quad anchored at the right hand, tilted forward like a
+    // held tool. The whole plane sits at z <= -2.6 (in front of the arm's
+    // front face at z = -2) and only tips further forward, so it can
+    // never intersect the body.
     if (spec.held) {
       const g = mk(spec.held.icon, spec.held.glint);
       addItemQuad(g, {
-        x: -12, y: 6, z: -0.5, s: 12,
-        rot: { rz: -0.55, ry: 0.35 },
-        pivot: [-6, 11, -0.5],
+        x: -13, y: 12, z: -2.6, s: 12,
+        rot: { rx: -0.85 },
+        pivot: [-6, 12, -2.6],
       });
     }
 
