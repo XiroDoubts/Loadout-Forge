@@ -1,0 +1,7 @@
+# Extracted game textures — from the user's licensed Minecraft copy,
+# not redistributable. Regenerate with ./extract-assets.sh
+assets/
+
+# Local machine settings
+.claude/settings.local.json
+.DS_Store
