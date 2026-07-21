@@ -249,6 +249,9 @@ function createViewer(canvas) {
   });
   canvas.addEventListener("pointerup", () => { lastPointer = null; });
   canvas.addEventListener("wheel", e => {
+    // Zoom only with ctrl/cmd held (trackpad pinch sets ctrlKey too);
+    // a plain scroll passes through so the page still scrolls normally.
+    if (!e.ctrlKey && !e.metaKey) return;
     e.preventDefault();
     cam.dist = Math.max(30, Math.min(110, cam.dist + e.deltaY * 0.06));
     lastInteract = performance.now();
@@ -294,6 +297,16 @@ function createViewer(canvas) {
   let raf;
   (function loop(t) { draw(t || 0); raf = requestAnimationFrame(loop); })();
 
+  // Stable canvas per texture path — keeps the GPU texture cache bounded
+  // (texCache is keyed by source object, so each source must be created once).
+  const _canvasCache = new Map();
+  function texCanvas(path) {
+    if (!_canvasCache.has(path)) {
+      _canvasCache.set(path, loadImage(path).then(imgToCanvas));
+    }
+    return _canvasCache.get(path);
+  }
+
   // ---------- scene assembly ----------
   // spec: { model: "stand"|"wide"|"slim", skinSrc: canvas|img|null, armor: {head, chest, legs, feet} }
   async function update(spec) {
@@ -305,7 +318,7 @@ function createViewer(canvas) {
     };
 
     if (spec.model === "stand") {
-      const tex = imgToCanvas(await loadImage("entity/armorstand/armorstand.png"));
+      const tex = await texCanvas("entity/armorstand/armorstand.png");
       const g = mk(tex, false);
       for (const p of STAND_PARTS) {
         addBox(g, { x: p.box[0], y: p.box[1], z: p.box[2], w: p.box[3], h: p.box[4], d: p.box[5],
@@ -328,7 +341,7 @@ function createViewer(canvas) {
       const item = spec.armor[slot];
       if (!item) continue;
       if (item.kind === "elytra") {
-        const tex = imgToCanvas(await loadImage("entity/equipment/wings/elytra.png"));
+        const tex = await texCanvas("entity/equipment/wings/elytra.png");
         const g = mk(tex, hasEnchants(item));
         const wing = { w: 10, h: 20, d: 2, u: 22, v: 0, texW: 64, texH: 32 };
         addBox(g, { x: -10, y: 4, z: 2, ...wing,

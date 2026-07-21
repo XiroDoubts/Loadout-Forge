@@ -568,6 +568,15 @@ canvas.pix { image-rendering: pixelated; display: block; }
 }
 .mc-input::placeholder { color: #5c5f66; }
 
+.import-area {
+  width: 100%;
+  min-height: 120px;
+  margin: 8px 0;
+  resize: vertical;
+  font-family: monospace;
+  font-size: 11px;
+}
+
 /* ---------- Stats table ---------- */
 .stats-table { display: flex; flex-direction: column; gap: 3px; }
 

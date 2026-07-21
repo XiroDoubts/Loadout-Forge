@@ -261,11 +261,19 @@ function openPicker(index) {
 }
 
 // ----- Preview panel (3D) -----
+const _customSkinCache = { url: null, img: null };
+
 async function skinSource() {
   if (state.view.customSkin) {
-    const img = new Image();
-    await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = state.view.customSkin; });
-    return img;
+    // Reuse the same Image object per dataURL so the viewer's texture
+    // cache (keyed by source object) doesn't grow on every update.
+    if (_customSkinCache.url !== state.view.customSkin) {
+      const img = new Image();
+      await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = state.view.customSkin; });
+      _customSkinCache.url = state.view.customSkin;
+      _customSkinCache.img = img;
+    }
+    return _customSkinCache.img;
   }
   return loadImage(skinPath(state.view.skin, state.view.model === "slim" ? "slim" : "wide"));
 }
@@ -422,12 +430,19 @@ function renderEditor() {
 
   const def = ITEM_DEFS[item.kind];
 
-  // Chest slot: chestplate <-> elytra swap
+  // Chest slot: chestplate <-> elytra swap.
+  // The replaced item is stashed so toggling back restores its full config.
   if (state.sel.type === "slot" && state.sel.key === "chest") {
     const row = el("div", "seg-row");
     for (const kind of ["chestplate", "elytra"]) {
       const b = el("button", "seg" + (item.kind === kind ? " on" : ""), ITEM_DEFS[kind].name);
-      b.onclick = () => { if (item.kind !== kind) { setSelectedItem(newItem(kind)); renderAll(); } };
+      b.onclick = () => {
+        if (item.kind === kind) return;
+        state.chestStash = state.chestStash || {};
+        state.chestStash[item.kind] = item;
+        state.slots.chest = state.chestStash[kind] || newItem(kind);
+        renderAll();
+      };
       row.appendChild(b);
     }
     wrap.appendChild(section("Equipment", row));
@@ -583,6 +598,89 @@ function renderEditor() {
   wrap.appendChild(section("Enchantments", enchBody));
 }
 
+// ----- Import build -----
+// Validates every field against game data; anything unrecognized is dropped.
+function sanitizeItem(raw, allowedKinds) {
+  if (!raw || typeof raw !== "object") return null;
+  const def = ITEM_DEFS[raw.kind];
+  if (!def || (allowedKinds && !allowedKinds.includes(raw.kind))) return null;
+
+  const item = { kind: raw.kind, material: null, trim: null, enchants: {} };
+
+  if (def.tiered) {
+    const mats = def.tiered === "armor" ? ARMOR_MATERIALS : TOOL_MATERIALS;
+    const m = mats[raw.material];
+    item.material = (m && (!m.only || m.only.includes(raw.kind))) ? raw.material : "iron";
+  }
+
+  if (def.trims && raw.trim && TRIM_PATTERNS[raw.trim.pattern] && TRIM_MATERIALS[raw.trim.material]) {
+    item.trim = { pattern: raw.trim.pattern, material: raw.trim.material };
+  }
+
+  if (raw.enchants && typeof raw.enchants === "object") {
+    for (const [id, lvl] of Object.entries(raw.enchants)) {
+      if (!ENCHANT_SETS[item.kind].includes(id)) continue;
+      const level = Math.min(Math.max(1, Math.floor(lvl)), ENCHANTS[id].max);
+      if (Number.isFinite(level)) setEnchant(item, id, level); // enforces conflicts
+    }
+  }
+  return item;
+}
+
+function importBuild(text) {
+  let data;
+  try { data = JSON.parse(text); } catch { return "That isn't valid JSON."; }
+  if (!data || typeof data !== "object" || (!data.slots && !data.gear)) {
+    return "No loadout data found — expected the JSON from Copy Build.";
+  }
+  const slotKinds = { head: ["helmet"], chest: ["chestplate", "elytra"], legs: ["leggings"], feet: ["boots"] };
+  const slots = { head: null, chest: null, legs: null, feet: null };
+  for (const [key, kinds] of Object.entries(slotKinds)) {
+    slots[key] = sanitizeItem(data.slots?.[key], kinds);
+  }
+  const gear = Array(9).fill(null);
+  if (Array.isArray(data.gear)) {
+    data.gear.slice(0, 9).forEach((raw, i) => { gear[i] = sanitizeItem(raw, GEAR_PICKER); });
+  }
+  state.slots = slots;
+  state.gear = gear;
+  state.sel = null;
+  state.activeSave = null;
+  renderAll();
+  return null; // success
+}
+
+function openImport() {
+  const overlay = el("div", "overlay");
+  const modal = el("div", "modal panel inspect-modal");
+  modal.appendChild(el("h3", "panel-title", "Import Build"));
+  modal.appendChild(el("div", "inspect-text",
+    "Paste a build copied with “Copy Build” (from any browser or friend):"));
+  const ta = document.createElement("textarea");
+  ta.className = "mc-input import-area";
+  ta.placeholder = '{"version":"Java Edition 26.2","slots":{...},"gear":[...]}';
+  modal.appendChild(ta);
+  const err = el("div", "inspect-text conflict");
+  err.style.display = "none";
+  modal.appendChild(err);
+  const btns = el("div", "btn-row");
+  const load = el("button", "btn small", "Load build");
+  load.onclick = () => {
+    const problem = importBuild(ta.value.trim());
+    if (problem) { err.textContent = problem; err.style.display = "block"; return; }
+    document.body.removeChild(overlay);
+  };
+  const cancel = el("button", "btn small ghost", "Cancel");
+  cancel.onclick = () => document.body.removeChild(overlay);
+  btns.appendChild(load);
+  btns.appendChild(cancel);
+  modal.appendChild(btns);
+  overlay.appendChild(modal);
+  overlay.onclick = (e) => { if (e.target === overlay) document.body.removeChild(overlay); };
+  document.body.appendChild(overlay);
+  ta.focus();
+}
+
 // ----- Anvil planner modal -----
 function openAnvilPlanner(item) {
   const plan = planAnvilOrder(item.enchants);
@@ -729,6 +827,7 @@ function wireGlobalButtons() {
     state = { slots: { head: null, chest: null, legs: null, feet: null }, gear: Array(9).fill(null), sel: null };
     renderAll();
   };
+  $("#btn-import").onclick = openImport;
   $("#btn-copy").onclick = async () => {
     const payload = JSON.stringify({ version: GAME_VERSION, slots: state.slots, gear: state.gear });
     try {
