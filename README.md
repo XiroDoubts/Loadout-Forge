@@ -89,6 +89,8 @@ python3 .claude/serve.py     # http://127.0.0.1:5173
 - `js/stats.js` — durability/damage/armor tables, enchant math, sourcing knowledge base
 - `js/anvil.js` — anvil combine-order solver (Java anvil mechanics, XP-point optimal)
 - `js/jarimport.js` — in-browser jar importer (zip parser → IndexedDB texture store)
+- `js/dialogs.js` — build import/share + modal dialogs (inspect, anvil, shopping, jar)
+- `tests.html` — standalone logic tests for `anvil.js` and `stats.js` (open in a browser)
 - `js/viewer3d.js` — dependency-free WebGL renderer (player / armor stand / armor / elytra)
 - `js/sprites.js` — icon canvas + glint loop (procedural pixel-art fallback)
 - `js/app.js` — state, editor UI, persistence
