@@ -48,15 +48,29 @@ and the Resin Brick trim material.
   anvil cost at a glance
 - **Light / dark mode** — toggle between the classic Minecraft GUI palette and
   the dark theme, applied across the whole app
+- **Loadout totals** — full-build summary card: armor points, toughness,
+  knockback resistance, EPF damage reduction per type, and total anvil cost
+- **Shopping list** — everything the build needs: templates (with sources and
+  duplication recipes), trim materials, netherite upgrades/ingots, and every
+  enchanted book, aggregated across all items
+- **Held item** — the selected (or first) gear piece renders in the model's hand
+- **Share links** — the whole build compressed into the URL fragment; send the
+  link, no backend involved
+- **In-browser jar import** — pick your Minecraft .jar right in the app
+  (dependency-free zip parser + DecompressionStream); textures are stored in
+  IndexedDB and everything runs without ever running the shell script
 - **In-game style tooltips**, autosave to localStorage, "Copy Build" JSON export
 
 ## Setup
 
-Textures are not bundled (they belong to your licensed game copy). Extract them
-from your installed jar first:
+Textures are not bundled (they belong to your licensed game copy). Either use
+the in-app **"Import game assets…"** button (footer) and pick your version .jar —
+or extract to disk:
 
 ```sh
-./extract-assets.sh          # defaults to version 26.2
+./extract-assets.sh                  # auto-locates your newest installed version
+./extract-assets.sh 26.2             # specific version
+./extract-assets.sh /path/to/x.jar   # explicit jar
 ```
 
 Then serve the folder — no build step, no dependencies:
@@ -74,6 +88,7 @@ python3 .claude/serve.py     # http://127.0.0.1:5173
 - `js/guis.js` — crafting/smithing GUI renderers for Inspect (real interface textures)
 - `js/stats.js` — durability/damage/armor tables, enchant math, sourcing knowledge base
 - `js/anvil.js` — anvil combine-order solver (Java anvil mechanics, XP-point optimal)
+- `js/jarimport.js` — in-browser jar importer (zip parser → IndexedDB texture store)
 - `js/viewer3d.js` — dependency-free WebGL renderer (player / armor stand / armor / elytra)
 - `js/sprites.js` — icon canvas + glint loop (procedural pixel-art fallback)
 - `js/app.js` — state, editor UI, persistence

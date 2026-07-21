@@ -189,7 +189,7 @@ function renderSlots() {
     } else {
       const ghost = document.createElement("img");
       ghost.className = "slot-ghost";
-      ghost.src = TEX_ROOT + `gui/sprites/container/slot/${slot.kind}.png`;
+      ghost.src = texURL(`gui/sprites/container/slot/${slot.kind}.png`);
       ghost.alt = slot.label;
       div.appendChild(ghost);
     }
@@ -281,15 +281,26 @@ async function skinSource() {
 async function updateViewer() {
   if (!viewer) return;
   try {
+    // Held item: the selected gear piece, or the first equipped gear
+    const heldItem = (state.sel?.type === "gear" && state.gear[state.sel.index]) ||
+      state.gear.find(Boolean) || null;
     const spec = {
       model: state.view.model,
       skinSrc: state.view.model === "stand" ? null : await skinSource(),
       armor: state.slots,
+      held: heldItem ? { icon: await buildIconCached(heldItem), glint: hasEnchants(heldItem) } : null,
     };
     await viewer.update(spec);
   } catch (err) {
     console.error("viewer update failed", err);
   }
+}
+
+// Stable canvas per icon config so the viewer's texture cache stays bounded.
+async function buildIconCached(item) {
+  const key = iconKey(item);
+  if (!_iconCache.has(key)) _iconCache.set(key, await buildIcon(item));
+  return _iconCache.get(key);
 }
 
 function renderPreview() {
@@ -326,6 +337,8 @@ function renderAllCards(wrap) {
       "Nothing equipped yet — click a slot on the left to start building."));
     return;
   }
+
+  wrap.appendChild(buildTotalsCard(entries.map(e => e.item)));
 
   for (const { item, sel } of entries) {
     const card = el("div", "item-card");
@@ -504,7 +517,7 @@ function renderEditor() {
       const b = el("button", "trim-btn" + (item.trim?.pattern === id ? " on" : ""));
       const ico = document.createElement("img");
       ico.className = "trim-ico";
-      ico.src = TEX_ROOT + templateIconPath(id);
+      ico.src = texURL(templateIconPath(id));
       b.appendChild(ico);
       b.appendChild(el("span", "", p.name));
       b.onclick = () => {
@@ -681,6 +694,206 @@ function openImport() {
   ta.focus();
 }
 
+// ----- Loadout totals card + shopping list -----
+function buildTotalsCard(items) {
+  const armorItems = ARMOR_SLOTS.map(s => state.slots[s.key]).filter(Boolean);
+  const t = loadoutTotals(armorItems, items);
+
+  const card = el("div", "item-card totals-card");
+  card.appendChild(el("div", "item-card-name", "Loadout Totals"));
+
+  const body = el("div", "totals-body");
+  const row = (label, value) => {
+    const r = el("div", "totals-row");
+    r.appendChild(el("span", "totals-label", label));
+    r.appendChild(el("span", "totals-value", value));
+    body.appendChild(r);
+  };
+  row("Armor", `${t.armor} / 20`);
+  if (t.toughness) row("Toughness", `+${t.toughness}`);
+  if (t.kbResist) row("Knockback Resist", `${Math.round(t.kbResist * 100)}%`);
+  row("All damage", `−${epfReduction(t.epf.all, 0)}%`);
+  if (t.epf.fire) row("Fire damage", `−${epfReduction(t.epf.all, t.epf.fire)}%`);
+  if (t.epf.blast) row("Explosions", `−${epfReduction(t.epf.all, t.epf.blast)}%`);
+  if (t.epf.projectile) row("Projectiles", `−${epfReduction(t.epf.all, t.epf.projectile)}%`);
+  if (t.epf.fall) row("Fall damage", `−${Math.min(epfReduction(t.epf.all, t.epf.fall), 80)}%`);
+  if (t.anvilItems) {
+    row("Anvil work", `${t.anvilLevels} levels · ~${t.anvilPoints.toLocaleString()} XP` +
+      (t.tooExpensive ? " ⚠" : ""));
+  }
+  card.appendChild(body);
+
+  const shopBtn = el("button", "btn small", "📋 Shopping list");
+  shopBtn.onclick = (e) => { e.stopPropagation(); openShoppingList(items); };
+  card.appendChild(shopBtn);
+  return card;
+}
+
+function openShoppingList(items) {
+  const list = buildShoppingList(items);
+  const overlay = el("div", "overlay");
+  const modal = el("div", "modal panel inspect-modal");
+  modal.appendChild(el("h3", "panel-title", "📋 Build Shopping List"));
+
+  const sectionEl = (label) => {
+    const b = el("div", "inspect-block");
+    b.appendChild(el("div", "inspect-label", label));
+    return b;
+  };
+  const lineWithIcon = (iconPath, text) => {
+    const r = el("div", "shop-row");
+    const img = document.createElement("img");
+    img.className = "anvil-ico";
+    img.src = texURL(iconPath);
+    r.appendChild(img);
+    r.appendChild(el("span", "", text));
+    return r;
+  };
+
+  if (list.templates.size) {
+    const b = sectionEl("Smithing Templates");
+    for (const [pat, count] of list.templates) {
+      const t = TEMPLATE_INFO[pat];
+      b.appendChild(lineWithIcon(templateIconPath(pat),
+        `${count}× ${TRIM_PATTERNS[pat].name} — ${t.where}; or duplicate: 7 diamonds + ${t.dupe}`));
+    }
+    modal.appendChild(b);
+  }
+  if (list.trimMats.size) {
+    const b = sectionEl("Trim Materials");
+    for (const [mat, count] of list.trimMats) {
+      b.appendChild(lineWithIcon(INGREDIENT_TEX[mat], `${count}× ${TRIM_MATERIALS[mat].name}`));
+    }
+    modal.appendChild(b);
+  }
+  if (list.netheriteUpgrades) {
+    const b = sectionEl("Netherite");
+    b.appendChild(lineWithIcon("item/netherite_upgrade_smithing_template.png",
+      `${list.netheriteUpgrades}× Netherite Upgrade template — ${NETHERITE_UPGRADE_INFO.where}`));
+    b.appendChild(lineWithIcon("item/netherite_ingot.png",
+      `${list.netheriteIngots}× Netherite Ingot (4 scrap + 4 gold each)`));
+    modal.appendChild(b);
+  }
+  if (list.books.size) {
+    const b = sectionEl(`Enchanted Books (${[...list.books.values()].reduce((a, c) => a + c, 0)})`);
+    for (const [label, count] of [...list.books].sort((x, y) => x[0].localeCompare(y[0]))) {
+      b.appendChild(lineWithIcon("item/enchanted_book.png", `${count}× ${label}`));
+    }
+    modal.appendChild(b);
+  }
+  if (list.anvilLevels) {
+    const b = sectionEl("Anvil Work");
+    b.appendChild(el("div", "inspect-text",
+      `${list.anvilLevels} levels total (~${list.anvilPoints.toLocaleString()} XP points) across all items — see each item's ⚒ Anvil order for the step-by-step.`));
+    modal.appendChild(b);
+  }
+
+  const close = el("button", "btn small", "Close");
+  close.onclick = () => document.body.removeChild(overlay);
+  modal.appendChild(close);
+  overlay.appendChild(modal);
+  overlay.onclick = (e) => { if (e.target === overlay) document.body.removeChild(overlay); };
+  document.body.appendChild(overlay);
+}
+
+// ----- Shareable URLs -----
+// Build state -> deflate -> base64url in the #b= fragment. No backend.
+async function encodeBuildToHash() {
+  const json = JSON.stringify({ slots: state.slots, gear: state.gear });
+  const stream = new Blob([json]).stream().pipeThrough(new CompressionStream("deflate-raw"));
+  const bytes = new Uint8Array(await new Response(stream).arrayBuffer());
+  let bin = "";
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
+}
+
+async function decodeBuildFromHash(b64) {
+  const bin = atob(b64.replaceAll("-", "+").replaceAll("_", "/"));
+  const bytes = Uint8Array.from(bin, c => c.charCodeAt(0));
+  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+  return new Response(stream).text();
+}
+
+async function shareBuild() {
+  const hash = await encodeBuildToHash();
+  const url = location.origin + location.pathname + "#b=" + hash;
+  history.replaceState(null, "", "#b=" + hash);
+  try {
+    await navigator.clipboard.writeText(url);
+    flashButton($("#btn-share"), "Link copied!");
+  } catch {
+    flashButton($("#btn-share"), "Copy failed");
+  }
+}
+
+async function loadBuildFromURL() {
+  if (!location.hash.startsWith("#b=")) return;
+  try {
+    const text = await decodeBuildFromHash(location.hash.slice(3));
+    const problem = importBuild(text); // sanitizes everything
+    if (problem) console.warn("shared build rejected:", problem);
+  } catch (err) {
+    console.warn("could not decode shared build:", err);
+  }
+}
+
+// ----- Jar asset importer -----
+function openJarImporter(firstRun) {
+  const overlay = el("div", "overlay");
+  const modal = el("div", "modal panel inspect-modal");
+  modal.appendChild(el("h3", "panel-title", "Game Assets"));
+  if (firstRun) {
+    modal.appendChild(el("div", "inspect-text",
+      "No textures found. Loadout Forge uses the real game textures from your own Minecraft installation — pick your version .jar below and everything is imported right in the browser (nothing is uploaded anywhere)."));
+  } else {
+    modal.appendChild(el("div", "inspect-text",
+      "Re-import textures from a Minecraft .jar — useful after a game update or on a machine without the assets/ folder. Files are processed locally in your browser."));
+  }
+
+  const where = el("div", "inspect-block");
+  where.appendChild(el("div", "inspect-label", "Where your jar lives"));
+  const paths = el("div", "inspect-text jar-paths");
+  paths.innerHTML =
+    "<b>macOS</b> ~/Library/Application Support/minecraft/versions/26.2/26.2.jar<br>" +
+    "<b>Windows</b> %APPDATA%\\.minecraft\\versions\\26.2\\26.2.jar<br>" +
+    "<b>Linux</b> ~/.minecraft/versions/26.2/26.2.jar";
+  where.appendChild(paths);
+  modal.appendChild(where);
+
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = ".jar,.zip";
+  input.id = "jar-file";
+  input.hidden = true;
+  const pick = el("label", "btn", "Choose .jar file…");
+  pick.setAttribute("for", "jar-file");
+  const status = el("div", "inspect-text jar-status", "");
+  input.onchange = async () => {
+    const file = input.files[0];
+    if (!file) return;
+    pick.style.display = "none";
+    try {
+      await importJarFile(file, msg => { status.textContent = msg; });
+      status.textContent = "Done! Reloading with your textures…";
+      setTimeout(() => location.reload(), 600);
+    } catch (err) {
+      status.textContent = "✕ " + err.message;
+      pick.style.display = "";
+    }
+  };
+  modal.appendChild(input);
+  modal.appendChild(pick);
+  modal.appendChild(status);
+
+  const close = el("button", "btn small ghost", "Close");
+  close.style.marginTop = "12px";
+  close.onclick = () => document.body.removeChild(overlay);
+  modal.appendChild(close);
+  overlay.appendChild(modal);
+  overlay.onclick = (e) => { if (e.target === overlay) document.body.removeChild(overlay); };
+  document.body.appendChild(overlay);
+}
+
 // ----- Anvil planner modal -----
 function openAnvilPlanner(item) {
   const plan = planAnvilOrder(item.enchants);
@@ -695,7 +908,7 @@ function openAnvilPlanner(item) {
   const bookImg = () => {
     const img = document.createElement("img");
     img.className = "anvil-ico";
-    img.src = TEX_ROOT + "item/enchanted_book.png";
+    img.src = texURL("item/enchanted_book.png");
     return img;
   };
 
@@ -787,7 +1000,7 @@ function openInspect(type, id) {
     const head = el("h3", "panel-title", "");
     const ico = document.createElement("img");
     ico.className = "inspect-ico";
-    ico.src = TEX_ROOT + templateIconPath(id);
+    ico.src = texURL(templateIconPath(id));
     head.appendChild(ico);
     head.appendChild(document.createTextNode(` ${p.name} Armor Trim`));
     modal.appendChild(head);
@@ -828,6 +1041,7 @@ function wireGlobalButtons() {
     renderAll();
   };
   $("#btn-import").onclick = openImport;
+  $("#btn-share").onclick = shareBuild;
   $("#btn-copy").onclick = async () => {
     const payload = JSON.stringify({ version: GAME_VERSION, slots: state.slots, gear: state.gear });
     try {
@@ -898,14 +1112,18 @@ function wireTheme() {
 }
 
 // ----- Boot -----
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
+  await loadImportedAssets();
   wireGlobalButtons();
   wireSaveControls();
   wireViewControls();
   wireTheme();
   startGlintLoop();
   viewer = createViewer($("#viewer3d"));
+  await loadBuildFromURL(); // shared link overrides the stored session
   renderAll();
+  $("#btn-assets").onclick = () => openJarImporter(false);
+  if (await assetsMissing()) openJarImporter(true);
 
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;

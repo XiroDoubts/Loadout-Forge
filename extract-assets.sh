@@ -1,15 +1,56 @@
 #!/bin/zsh
 # Extracts the textures Loadout Forge needs from a locally installed
 # Minecraft: Java Edition jar (your own licensed copy).
-# Usage: ./extract-assets.sh [version]   (default: 26.2)
+#
+# Usage: ./extract-assets.sh              auto-locate newest installed version
+#        ./extract-assets.sh 26.2         specific version
+#        ./extract-assets.sh /path/to.jar explicit jar path
+#
+# (You can also skip this script entirely: the app's "Import game
+#  assets…" button loads a jar directly in the browser.)
 
 set -e
-VERSION="${1:-26.2}"
-JAR="$HOME/Library/Application Support/minecraft/versions/$VERSION/$VERSION.jar"
 cd "$(dirname "$0")"
+
+# Find the .minecraft versions dir for this OS
+find_versions_dir() {
+  for dir in \
+    "$HOME/Library/Application Support/minecraft/versions" \
+    "$HOME/.minecraft/versions" \
+    "$APPDATA/.minecraft/versions"; do
+    [[ -d "$dir" ]] && { echo "$dir"; return; }
+  done
+  return 1
+}
+
+ARG="${1:-}"
+if [[ "$ARG" == *.jar ]]; then
+  JAR="$ARG"
+else
+  VERSIONS_DIR="$(find_versions_dir)" || {
+    echo "Couldn't find a .minecraft installation. Pass the jar path directly:" >&2
+    echo "  ./extract-assets.sh /path/to/26.2.jar" >&2
+    exit 1
+  }
+  if [[ -n "$ARG" ]]; then
+    VERSION="$ARG"
+  else
+    # newest release version (skips snapshots and modded profiles)
+    VERSION="$(ls "$VERSIONS_DIR" | grep -E '^[0-9]+(\.[0-9]+)+$' | sort -t. -k1,1n -k2,2n -k3,3n | tail -1)"
+    if [[ -z "$VERSION" ]]; then
+      echo "No release versions found in $VERSIONS_DIR" >&2
+      echo "Installed versions:" >&2
+      ls "$VERSIONS_DIR" >&2
+      exit 1
+    fi
+    echo "Auto-selected newest installed release: $VERSION"
+  fi
+  JAR="$VERSIONS_DIR/$VERSION/$VERSION.jar"
+fi
 
 if [[ ! -f "$JAR" ]]; then
   echo "Jar not found: $JAR" >&2
+  VERSIONS_DIR="$(find_versions_dir 2>/dev/null)" && { echo "Installed versions:" >&2; ls "$VERSIONS_DIR" >&2; }
   exit 1
 fi
 

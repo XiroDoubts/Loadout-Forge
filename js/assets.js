@@ -10,6 +10,14 @@ const TEX_ROOT = "assets/minecraft/textures/";
 const LEATHER_TINT = [160, 101, 64]; // default undyed leather color
 
 // ---------- image loading ----------
+// Textures resolve from the in-browser jar import (object URLs) first,
+// then fall back to the assets/ directory served from disk.
+const _importedTex = new Map(); // path -> object URL
+
+function texURL(path) {
+  return _importedTex.get(path) || TEX_ROOT + path;
+}
+
 const _imgCache = new Map();
 function loadImage(path) {
   if (_imgCache.has(path)) return _imgCache.get(path);
@@ -17,7 +25,7 @@ function loadImage(path) {
     const img = new Image();
     img.onload = () => resolve(img);
     img.onerror = () => reject(new Error("missing texture: " + path));
-    img.src = TEX_ROOT + path;
+    img.src = texURL(path);
   });
   _imgCache.set(path, p);
   return p;

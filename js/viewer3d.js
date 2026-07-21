@@ -120,6 +120,25 @@ function addBox(group, o) {
   }
 }
 
+// Flat double-sided quad for held items (textured with the item icon).
+// Size s in world units; positioned via rot/pivot like boxes.
+function addItemQuad(group, o) {
+  const { x, y, z, s, rot = null, pivot = [0, 0, 0] } = o;
+  const corners = [
+    [x, y + s, z], [x + s, y + s, z], [x + s, y, z], [x, y, z],
+  ];
+  const uvs = [[0, 0], [1, 0], [1, 1], [0, 1]];
+  const base = group.verts.length / 6;
+  for (let i = 0; i < 4; i++) {
+    let p = corners[i];
+    if (rot) p = rotatePoint(p, rot, pivot);
+    group.verts.push(p[0], p[1], p[2], uvs[i][0], uvs[i][1], 0.95);
+  }
+  // both windings so it's visible from either side
+  group.indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
+  group.indices.push(base, base + 2, base + 1, base, base + 3, base + 2);
+}
+
 // ---------- part tables ----------
 function playerParts(slim) {
   const aw = slim ? 3 : 4;              // arm width
@@ -357,6 +376,16 @@ function createViewer(canvas) {
         addBox(g, { x: b.box[0], y: b.box[1], z: b.box[2], w: b.box[3], h: b.box[4], d: b.box[5],
                     u: b.uv[0], v: b.uv[1], texW: 64, texH: 32, inflate: b.inf, mirror: b.mirror });
       }
+    }
+
+    // held item: quad anchored at the right hand, angled like a held tool
+    if (spec.held) {
+      const g = mk(spec.held.icon, spec.held.glint);
+      addItemQuad(g, {
+        x: -12, y: 6, z: -0.5, s: 12,
+        rot: { rz: -0.55, ry: 0.35 },
+        pivot: [-6, 11, -0.5],
+      });
     }
 
     uploadGroups(groups);

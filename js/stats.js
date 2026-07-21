@@ -194,6 +194,76 @@ function computeStats(item) {
   return rows;
 }
 
+// ---------- loadout-wide totals ----------
+// items: equipped armor pieces (worn slots only) + gear list for anvil sums
+function loadoutTotals(armorItems, allEquipped) {
+  const t = {
+    armor: 0, toughness: 0, kbResist: 0,
+    epf: { all: 0, fire: 0, blast: 0, projectile: 0, fall: 0 },
+    anvilLevels: 0, anvilPoints: 0, anvilItems: 0, tooExpensive: false,
+  };
+  for (const item of armorItems) {
+    if (ITEM_DEFS[item.kind].tiered !== "armor") continue;
+    t.armor += ARMOR_POINTS[item.material]?.[item.kind] ?? 0;
+    t.toughness += ARMOR_TOUGHNESS[item.material] ?? 0;
+    t.kbResist += ARMOR_KB_RESIST[item.material] ?? 0;
+    const e = item.enchants || {};
+    t.epf.all += e.protection || 0;
+    t.epf.fire += 2 * (e.fire_protection || 0);
+    t.epf.blast += 2 * (e.blast_protection || 0);
+    t.epf.projectile += 2 * (e.projectile_protection || 0);
+    t.epf.fall += 3 * (e.feather_falling || 0);
+  }
+  for (const item of allEquipped) {
+    const plan = planAnvilOrder(item.enchants || {});
+    if (!plan) continue;
+    t.anvilItems++;
+    t.anvilLevels += plan.totalLevels;
+    t.anvilPoints += plan.totalPoints;
+    if (plan.tooExpensive) t.tooExpensive = true;
+  }
+  return t;
+}
+
+// EPF-based damage reduction: 4% per point, EPF capped at 20 (80%)
+function epfReduction(baseEpf, typedEpf) {
+  return Math.min(baseEpf + typedEpf, 20) * 4;
+}
+
+// ---------- resource shopping list ----------
+function buildShoppingList(items) {
+  const list = {
+    templates: new Map(),   // patternId -> count
+    trimMats: new Map(),    // trim material id -> count
+    netheriteUpgrades: 0,
+    netheriteIngots: 0,
+    books: new Map(),       // "Enchant Lvl" label -> count
+    anvilLevels: 0,
+    anvilPoints: 0,
+  };
+  for (const item of items) {
+    if (item.trim) {
+      list.templates.set(item.trim.pattern, (list.templates.get(item.trim.pattern) || 0) + 1);
+      list.trimMats.set(item.trim.material, (list.trimMats.get(item.trim.material) || 0) + 1);
+    }
+    if (item.material === "netherite") {
+      list.netheriteUpgrades++;
+      list.netheriteIngots++;
+    }
+    for (const [id, lvl] of Object.entries(item.enchants || {})) {
+      const e = ENCHANTS[id];
+      const label = e.max === 1 ? e.name : `${e.name} ${ROMAN[lvl]}`;
+      list.books.set(label, (list.books.get(label) || 0) + 1);
+    }
+    const plan = planAnvilOrder(item.enchants || {});
+    if (plan) {
+      list.anvilLevels += plan.totalLevels;
+      list.anvilPoints += plan.totalPoints;
+    }
+  }
+  return list;
+}
+
 // ============================================================
 // Inspect knowledge base
 // ============================================================
