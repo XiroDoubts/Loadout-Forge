@@ -16,6 +16,7 @@ const WANTED_TEXTURES = [
   /^assets\/minecraft\/textures\/entity\/equipment\/wings\/elytra\.png$/,
   /^assets\/minecraft\/textures\/entity\/player\//,
   /^assets\/minecraft\/textures\/entity\/armorstand\//,
+  /^assets\/minecraft\/textures\/entity\/shield\/shield_base_nopattern\.png$/,
   /^assets\/minecraft\/textures\/trims\//,
   /^assets\/minecraft\/textures\/gui\/container\/(crafting_table|smithing|inventory)\.png$/,
   /^assets\/minecraft\/textures\/gui\/sprites\/container\/slot(\.png$|\/)/,

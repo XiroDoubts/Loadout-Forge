@@ -153,8 +153,15 @@ async function buildIcon(item) {
   c.width = 16; c.height = 16;
   const ctx = c.getContext("2d");
 
-  if (item.kind === "shield") { // no flat item texture in the jar (3D model)
-    drawProceduralShield(ctx);
+  if (item.kind === "shield") {
+    // Shields have no flat item texture — the game renders their icon from
+    // the 3D model. Compose it from the shield entity's plate front face
+    // (plate box 12w x 22h, north face at texture region 1,1..13,23).
+    const src = imgToCanvas(await loadImage("entity/shield/shield_base_nopattern.png"));
+    const dstH = 16, dstW = Math.round(12 * dstH / 22);
+    const dstX = Math.round((16 - dstW) / 2);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(src, 1, 1, 12, 22, dstX, 0, dstW, dstH);
     return c;
   }
 
@@ -172,18 +179,6 @@ async function buildIcon(item) {
     ctx.drawImage(await remapTrim(`trims/items/${item.kind}_trim.png`, pal), 0, 0);
   }
   return c;
-}
-
-function drawProceduralShield(ctx) {
-  const pal = FIXED_PALETTES.shield;
-  const map = PIXEL_MAPS.shield;
-  for (let y = 0; y < 16; y++)
-    for (let x = 0; x < 16; x++) {
-      const ch = map[y][x];
-      if (ch === ".") continue;
-      ctx.fillStyle = pal[ch] || "#f0f";
-      ctx.fillRect(x, y, 1, 1);
-    }
 }
 
 // Smithing template icons for the trim pattern picker

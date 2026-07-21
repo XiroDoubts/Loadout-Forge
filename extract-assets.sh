@@ -82,6 +82,7 @@ unzip -o -q "$JAR" \
   "assets/minecraft/textures/item/shears.png" \
   "assets/minecraft/textures/item/*_armor_trim_smithing_template.png" \
   "assets/minecraft/textures/item/netherite_upgrade_smithing_template.png" \
+  "assets/minecraft/textures/entity/shield/shield_base_nopattern.png" \
   -d .
 
 # GUI sheets, slot ghost sprites, and recipe ingredients (Inspect views)
@@ -103,6 +104,7 @@ unzip -o -q "$JAR" \
   "assets/minecraft/textures/item/quartz.png" \
   "assets/minecraft/textures/item/redstone.png" \
   "assets/minecraft/textures/item/resin_brick.png" \
+  "assets/minecraft/textures/item/enchanted_book.png" \
   "assets/minecraft/textures/block/blackstone.png" \
   "assets/minecraft/textures/block/cobbled_deepslate.png" \
   "assets/minecraft/textures/block/cobblestone.png" \
