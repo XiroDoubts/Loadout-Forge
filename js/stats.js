@@ -122,7 +122,7 @@ function computeStats(item) {
     if (e.fire_aspect) rows.push({ label: "Ignites target", value: `${4 * e.fire_aspect}s of fire`, kind: "bonus" });
     if (e.knockback) rows.push({ label: "Knockback", value: `+${e.knockback * 3} blocks`, kind: "bonus" });
     if (e.looting) rows.push({ label: "Looting", value: `+${e.looting} max drops, +${e.looting}% rare drop chance`, kind: "bonus" });
-    if (e.sweeping_edge) rows.push({ label: "Sweep damage", value: `${Math.round(e.sweeping_edge / (e.sweeping_edge + 1) * 100)}% of hit`, kind: "bonus" });
+    if (e.sweeping_edge) rows.push({ label: "Sweep damage", value: `1 + ${Math.round(e.sweeping_edge / (e.sweeping_edge + 1) * 100)}% of attack`, kind: "bonus" });
   }
 
   // --- mining tools ---
@@ -148,12 +148,12 @@ function computeStats(item) {
     if (e.piercing) rows.push({ label: "Piercing", value: `passes through ${e.piercing + 1} entities`, kind: "bonus" });
   }
   if (item.kind === "trident") {
-    if (e.loyalty) rows.push({ label: "Loyalty", value: `returns after ${fmtNum(1.3 / e.loyalty)}s-ish (faster per level)`, kind: "bonus" });
+    if (e.loyalty) rows.push({ label: "Loyalty", value: "thrown trident returns; faster at higher levels", kind: "bonus" });
     if (e.riptide) rows.push({ label: "Riptide", value: "launches with you (rain/water only)", kind: "bonus" });
     if (e.channeling) rows.push({ label: "Channeling", value: "lightning on hit during thunderstorms", kind: "bonus" });
   }
   if (item.kind === "fishing_rod") {
-    if (e.luck_of_the_sea) rows.push({ label: "Treasure chance", value: `${5 + e.luck_of_the_sea * 2}% (base 5%)`, kind: "bonus" });
+    if (e.luck_of_the_sea) rows.push({ label: "Treasure chance", value: `≈${5 + e.luck_of_the_sea * 2}% (base 5%)`, kind: "bonus" });
     if (e.lure) rows.push({ label: "Wait time", value: `-${5 * e.lure}s per catch`, kind: "bonus" });
   }
 
@@ -184,7 +184,7 @@ function computeStats(item) {
     if (e.swift_sneak) rows.push({ label: "Sneak speed", value: `${30 + 15 * e.swift_sneak}% of walking`, kind: "bonus" });
     if (e.depth_strider) rows.push({ label: "Swim speed", value: e.depth_strider >= 3 ? "as fast as walking" : `+${Math.round(e.depth_strider / 3 * 100)}% toward walk speed`, kind: "bonus" });
     if (e.frost_walker) rows.push({ label: "Frost Walker", value: `freezes water in ${2 + e.frost_walker} block radius`, kind: "bonus" });
-    if (e.soul_speed) rows.push({ label: "Soul sand speed", value: `×${(1.3 + 0.105 * e.soul_speed).toFixed(2)}`, kind: "bonus" });
+    if (e.soul_speed) rows.push({ label: "Soul sand speed", value: `≈×${(1.3 + 0.105 * e.soul_speed).toFixed(2)}`, kind: "bonus" });
   }
 
   if (e.mending) rows.push({ label: "Mending", value: "XP repairs 2 durability per point", kind: "bonus" });

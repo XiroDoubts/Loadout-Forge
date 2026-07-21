@@ -374,46 +374,11 @@ function paletteFor(item) {
   return FIXED_PALETTES[item.kind];
 }
 
-// ---------- Trim overlay masks (computed from base silhouette) ----------
-const BODY_CHARS = new Set(["b", "d", "l"]);
-
-function trimMask(kind, style) {
-  const map = PIXEL_MAPS[kind];
-  const at = (x, y) => (x < 0 || y < 0 || x > 15 || y > 15) ? "." : map[y][x];
-  const pts = [];
-  for (let y = 0; y < 16; y++) {
-    for (let x = 0; x < 16; x++) {
-      if (!BODY_CHARS.has(at(x, y))) continue;
-      let hit = false;
-      switch (style) {
-        case "edges": // body pixels touching the outline
-          hit = [at(x-1,y), at(x+1,y), at(x,y-1), at(x,y+1)].includes("o");
-          break;
-        case "stripe": // central vertical band
-          hit = x === 7 || x === 8;
-          break;
-        case "chevron": // diagonal banding
-          hit = (x + y) % 5 < 2;
-          break;
-        case "studs": // dotted grid
-          hit = x % 3 === 1 && y % 3 === 1;
-          break;
-      }
-      if (hit) pts.push([x, y]);
-    }
-  }
-  return pts;
-}
-
-const _maskCache = {};
-function cachedTrimMask(kind, style) {
-  const key = kind + ":" + style;
-  return _maskCache[key] || (_maskCache[key] = trimMask(kind, style));
-}
-
 // ---------- Drawing ----------
 // Prefers the real game texture (composed by assets.js); falls back to
-// the procedural pixel map while the texture is still loading.
+// the procedural pixel map while the texture is still loading. The
+// fallback omits the trim overlay — the real (trimmed) icon lands within
+// a frame or two.
 function drawItemFrame(ctx, item, scale, glintPhase) {
   ctx.clearRect(0, 0, 16 * scale, 16 * scale);
 
@@ -429,14 +394,6 @@ function drawItemFrame(ctx, item, scale, glintPhase) {
         const c = map[y][x];
         if (c === ".") continue;
         ctx.fillStyle = pal[c] || "#f0f";
-        ctx.fillRect(x * scale, y * scale, scale, scale);
-      }
-    }
-    if (item.trim && ITEM_DEFS[item.kind].trims) {
-      const mat = TRIM_MATERIALS[item.trim.material];
-      const style = TRIM_PATTERNS[item.trim.pattern].style;
-      for (const [x, y] of cachedTrimMask(item.kind, style)) {
-        ctx.fillStyle = (x + y) % 2 === 0 ? mat.color : mat.dark;
         ctx.fillRect(x * scale, y * scale, scale, scale);
       }
     }

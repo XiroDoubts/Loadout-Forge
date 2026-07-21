@@ -56,13 +56,6 @@ function setSelectedItem(item) {
   else state.gear[state.sel.index] = item;
 }
 
-function allItems() {
-  return [
-    ...ARMOR_SLOTS.map(s => state.slots[s.key]),
-    ...state.gear,
-  ].filter(Boolean);
-}
-
 // ---------- Save slots ----------
 const SAVES_KEY = "loadout-forge-saves";
 
@@ -518,6 +511,9 @@ function renderEditor() {
       row.appendChild(val);
       if (r.note) row.appendChild(el("div", "stat-note", r.note));
       table.appendChild(row);
+    }
+    if (statRows.some(r => String(r.value).includes("≈"))) {
+      table.appendChild(el("div", "stat-footnote", "≈ approximate in-game value"));
     }
     if (item.material === "netherite") {
       const nu = el("button", "stat-source-btn", "ⓘ Requires a Netherite Upgrade template");
