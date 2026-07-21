@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Loadout Forge — Tests</title>
+  <style>
+    body { font-family: 'Inter', system-ui, sans-serif; background: #17181c; color: #e8e6e0; padding: 24px; }
+    h1 { font-size: 18px; }
+    #summary { font-size: 16px; font-weight: 700; margin: 12px 0 20px; }
+    .pass { color: #54c04f; }
+    .fail { color: #e05a4e; }
+    .case { padding: 4px 0; border-bottom: 1px solid #2a2c32; font-size: 13px; }
+    .case .name { font-weight: 600; }
+    .case .detail { color: #9a9890; font-size: 12px; margin-left: 8px; }
+  </style>
+</head>
+<body>
+  <h1>Loadout Forge — logic tests</h1>
+  <div id="summary">Running…</div>
+  <div id="results"></div>
+
+  <!-- Pure-logic modules under test + their data dependencies -->
+  <script src="js/data.js"></script>
+  <script src="js/anvil.js"></script>
+  <script src="js/stats.js"></script>
+  <script>
+  const results = [];
+  function check(name, cond, detail) {
+    results.push({ name, pass: !!cond, detail: detail || "" });
+  }
+  function approx(a, b, eps = 0.001) { return Math.abs(a - b) <= eps; }
+
+  // ---------- anvil.js ----------
+  // xpPoints: known level→cumulative-XP boundaries
+  // Known cumulative-XP totals from the Minecraft experience table
+  check("xpPoints(16) = 352", xpPoints(16) === 352, String(xpPoints(16)));
+  check("xpPoints(17) = 394", approx(xpPoints(17), 394), String(xpPoints(17)));
+  check("xpPoints(30) = 1395", approx(xpPoints(30), 1395), String(xpPoints(30)));
+  check("xpPoints(32) = 1628", approx(xpPoints(32), 1628), String(xpPoints(32)));
+
+  // planAnvilOrder: empty
+  check("plan(empty) = null", planAnvilOrder({}) === null);
+
+  // single enchant: one step, item + book, cost = level × book multiplier
+  {
+    const p = planAnvilOrder({ sharpness: 5 });
+    check("single: 1 step", p && p.steps.length === 1);
+    check("single: 5 levels (sharpness book mult 1 × V)", p && p.totalLevels === 5, p && String(p.totalLevels));
+  }
+
+  // Mending (book mult 2): 1 level; Efficiency V (mult 1): 5 levels
+  {
+    const p = planAnvilOrder({ mending: 1 });
+    check("mending: 2 levels (book mult 2)", p && p.totalLevels === 2, p && String(p.totalLevels));
+  }
+
+  // ordering matters: solver should never exceed a naive sequential upper bound
+  {
+    const enchants = { sharpness: 5, unbreaking: 3, mending: 1, fire_aspect: 2, looting: 3 };
+    const p = planAnvilOrder(enchants);
+    check("multi: produces a plan", p && p.steps.length >= 1);
+    check("multi: totalPoints > 0", p && p.totalPoints > 0);
+    // every step's level cost is the sum of its parts (no negative/NaN)
+    check("multi: no NaN levels", p && p.steps.every(s => Number.isFinite(s.levels)));
+    // optimal must be <= a purely-sequential book-by-book application
+    let seqLevels = 0, uses = 0;
+    for (const [id, lvl] of Object.entries(enchants)) {
+      seqLevels += (2 ** uses - 1) + lvl * ANVIL_MULT[id][1];
+      uses++;
+    }
+    check("multi: optimal ≤ naive sequential", p && p.totalLevels <= seqLevels,
+      p && `opt ${p.totalLevels} ≤ seq ${seqLevels}`);
+  }
+
+  // too-expensive detection: many high-multiplier enchants on one item
+  {
+    const p = planAnvilOrder({ thorns: 3, protection: 4, unbreaking: 3, mending: 1,
+      respiration: 3, aqua_affinity: 1 });
+    check("too-expensive flag exists", p && typeof p.tooExpensive === "boolean");
+  }
+
+  // ---------- stats.js ----------
+  // durability
+  check("netherite sword durability 2031",
+    baseDurability({ kind: "sword", material: "netherite" }) === 2031);
+  check("copper sword durability 190 (Java)",
+    baseDurability({ kind: "sword", material: "copper" }) === 190);
+  check("diamond chestplate durability 528",
+    baseDurability({ kind: "chestplate", material: "diamond" }) === 528);
+  check("turtle helmet durability 275",
+    baseDurability({ kind: "helmet", material: "turtle" }) === 275);
+  check("mace durability 500", baseDurability({ kind: "mace" }) === 500);
+
+  // Unbreaking expected life: tools ×(lvl+1), armor different formula
+  {
+    const sword = computeStats({ kind: "sword", material: "iron", enchants: { unbreaking: 3 } });
+    const dur = sword.find(r => r.label === "Durability");
+    check("tool Unbreaking III ≈ ×4", dur && dur.mod && dur.mod.includes("1000"),
+      dur && dur.mod); // iron sword 250 × 4 = 1000
+    const boots = computeStats({ kind: "boots", material: "iron", enchants: { unbreaking: 3 } });
+    const bd = boots.find(r => r.label === "Durability");
+    // armor: 195 / (0.6 + 0.4/4) = 195 / 0.7 ≈ 279
+    check("armor Unbreaking III ≈ ×1.43 (≈279)", bd && bd.mod && bd.mod.includes("279"), bd && bd.mod);
+  }
+
+  // Sharpness adds 0.5×lvl + 0.5
+  {
+    const s = computeStats({ kind: "sword", material: "diamond", enchants: { sharpness: 5 } });
+    const dmg = s.find(r => r.label === "Attack Damage");
+    check("diamond sword base 7", dmg && dmg.value === "7", dmg && dmg.value);
+    check("Sharpness V → 10 (7 + 3)", dmg && dmg.mod === "10", dmg && dmg.mod);
+  }
+
+  // spear iron damage 3.5, reach line present
+  {
+    const s = computeStats({ kind: "spear", material: "iron", enchants: {} });
+    const dmg = s.find(r => r.label === "Attack Damage");
+    check("iron spear damage 3.5", dmg && dmg.value === "3.5", dmg && dmg.value);
+    check("spear shows reach", s.some(r => r.label === "Reach"));
+  }
+
+  // armor totals aggregation
+  {
+    const set = [
+      { kind: "helmet", material: "diamond", enchants: { protection: 4 } },
+      { kind: "chestplate", material: "diamond", enchants: { protection: 4 } },
+      { kind: "leggings", material: "diamond", enchants: {} },
+      { kind: "boots", material: "diamond", enchants: {} },
+    ];
+    const t = loadoutTotals(set, set);
+    check("full diamond armor = 20 points", t.armor === 20, String(t.armor));
+    check("full diamond toughness = 8", t.toughness === 8, String(t.toughness));
+    check("2×Prot IV → EPF 8 → 32% all-damage", epfReduction(t.epf.all, 0) === 32, String(epfReduction(t.epf.all, 0)));
+  }
+
+  // EPF cap at 80%
+  check("EPF reduction caps at 80%", epfReduction(50, 0) === 80);
+
+  // shopping list aggregation
+  {
+    const items = [
+      { kind: "helmet", material: "netherite", trim: { pattern: "ward", material: "gold" }, enchants: { protection: 4 } },
+      { kind: "chestplate", material: "netherite", trim: { pattern: "ward", material: "gold" }, enchants: { protection: 4 } },
+    ];
+    const list = buildShoppingList(items);
+    check("shopping: 2 ward templates", list.templates.get("ward") === 2, String(list.templates.get("ward")));
+    check("shopping: 2 netherite upgrades", list.netheriteUpgrades === 2);
+    check("shopping: 2 Protection IV books", list.books.get("Protection IV") === 2, String(list.books.get("Protection IV")));
+  }
+
+  // ---------- render ----------
+  const passed = results.filter(r => r.pass).length;
+  const summary = document.getElementById("summary");
+  summary.textContent = `${passed} / ${results.length} passed`;
+  summary.className = passed === results.length ? "pass" : "fail";
+  const out = document.getElementById("results");
+  for (const r of results) {
+    const d = document.createElement("div");
+    d.className = "case";
+    d.innerHTML = `<span class="${r.pass ? "pass" : "fail"}">${r.pass ? "✓" : "✗"}</span> ` +
+      `<span class="name">${r.name}</span>` +
+      (r.detail && !r.pass ? `<span class="detail">got: ${r.detail}</span>` : "");
+    out.appendChild(d);
+  }
+  // expose for headless checking
+  window.__testResults = { passed, total: results.length,
+    failures: results.filter(r => !r.pass).map(r => r.name) };
+  </script>
+</body>
+</html>
