@@ -278,12 +278,18 @@ async function skinSource() {
   return loadImage(skinPath(state.view.skin, state.view.model === "slim" ? "slim" : "wide"));
 }
 
+// Held-item rendering is shelved for a later revision — the flat quad
+// didn't feel right. Flip to true to bring it back (renderer support
+// lives in viewer3d.js: addItemQuad + spec.held).
+const HELD_ITEM_ENABLED = false;
+
 async function updateViewer() {
   if (!viewer) return;
   try {
     // Held item: the selected gear piece, or the first equipped gear
-    const heldItem = (state.sel?.type === "gear" && state.gear[state.sel.index]) ||
-      state.gear.find(Boolean) || null;
+    const heldItem = HELD_ITEM_ENABLED &&
+      ((state.sel?.type === "gear" && state.gear[state.sel.index]) ||
+       state.gear.find(Boolean)) || null;
     const spec = {
       model: state.view.model,
       skinSrc: state.view.model === "stand" ? null : await skinSource(),
@@ -476,7 +482,23 @@ function renderEditor() {
       chip.onclick = () => { item.material = id; renderAll(); };
       row.appendChild(chip);
     }
-    wrap.appendChild(section("Material", row));
+    const matBody = el("div");
+    matBody.appendChild(row);
+    if (def.tiered === "armor") {
+      const applyAll = el("button", "btn small apply-all", "Apply material to all pieces");
+      applyAll.onclick = () => {
+        for (const s of ARMOR_SLOTS) {
+          const it = state.slots[s.key];
+          if (!it || ITEM_DEFS[it.kind].tiered !== "armor") continue;
+          const m = ARMOR_MATERIALS[item.material];
+          if (m.only && !m.only.includes(it.kind)) continue; // e.g. turtle is helmet-only
+          it.material = item.material;
+        }
+        renderAll();
+      };
+      matBody.appendChild(applyAll);
+    }
+    wrap.appendChild(section("Material", matBody));
   }
 
   // Item stats (live: reacts to material + enchant changes)
@@ -552,6 +574,17 @@ function renderEditor() {
       cur.appendChild(insp);
       body.appendChild(cur);
     }
+    const applyTrim = el("button", "btn small apply-all",
+      item.trim ? "Apply trim to all pieces" : "Clear trim on all pieces");
+    applyTrim.onclick = () => {
+      for (const s of ARMOR_SLOTS) {
+        const it = state.slots[s.key];
+        if (!it || !ITEM_DEFS[it.kind].trims) continue;
+        it.trim = item.trim ? { ...item.trim } : null;
+      }
+      renderAll();
+    };
+    body.appendChild(applyTrim);
     wrap.appendChild(section("Armor Trim", body));
   }
 

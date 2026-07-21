@@ -833,6 +833,8 @@ body.light .totals-card .item-card-name { color: #ecc846; }
 
 .deselect-btn { margin-bottom: 14px; }
 
+.apply-all { display: block; margin-top: 8px; }
+
 /* light-mode contrast fixes for colored states */
 body.light .ench-row.active { background: #cfc2e2; }
 body.light .chip.on { background: #b9d3a4; }
