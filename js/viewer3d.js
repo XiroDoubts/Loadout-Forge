@@ -71,8 +71,15 @@ const FACE_SHADE = { top: 1.0, bottom: 0.5, front: 0.85, back: 0.85, left: 0.65,
 
 function addBox(group, o) {
   const { x, y, z, w, h, d, u, v, texW, texH, inflate = 0, mirror = false, rot = null, pivot = [0,0,0] } = o;
-  const x0 = x - inflate, y0 = y - inflate, z0 = z - inflate;
-  const x1 = x + w + inflate, y1 = y + h + inflate, z1 = z + d + inflate;
+  // inflate may be a number (uniform) or a per-face object {x0,x1,y0,y1,z0,z1}
+  // where x0/x1 are the -X/+X faces, etc. Missing faces default to 0. This
+  // lets adjacent pieces (e.g. the two boots) inflate outward without their
+  // inner faces crossing the centerline and interpenetrating.
+  const inf = typeof inflate === "number"
+    ? { x0: inflate, x1: inflate, y0: inflate, y1: inflate, z0: inflate, z1: inflate }
+    : { x0: 0, x1: 0, y0: 0, y1: 0, z0: 0, z1: 0, ...inflate };
+  const x0 = x - inf.x0, y0 = y - inf.y0, z0 = z - inf.z0;
+  const x1 = x + w + inf.x1, y1 = y + h + inf.y1, z1 = z + d + inf.z1;
 
   // UV regions in texture pixels: [u0, v0, u1, v1]
   const R = {
@@ -180,12 +187,15 @@ const ARMOR_BOXES = {
   ],
   leggings: [
     { box: [-4, 12, -2, 8, 12, 4], uv: [16, 16], inf: 0.51 },
-    { box: [-4, 0, -2, 4, 12, 4],  uv: [0, 16],  inf: 0.5 },
-    { box: [0, 0, -2, 4, 12, 4],   uv: [0, 16],  inf: 0.5, mirror: true },
+    // legs inflate outward but not across the centerline (inner face inf 0)
+    { box: [-4, 0, -2, 4, 12, 4],  uv: [0, 16],  inf: { x0: 0.5, x1: 0, y0: 0.5, y1: 0.5, z0: 0.5, z1: 0.5 } },
+    { box: [0, 0, -2, 4, 12, 4],   uv: [0, 16],  inf: { x0: 0, x1: 0.5, y0: 0.5, y1: 0.5, z0: 0.5, z1: 0.5 }, mirror: true },
   ],
   boots: [
-    { box: [-4, 0, -2, 4, 12, 4], uv: [0, 16], inf: 1.0 },
-    { box: [0, 0, -2, 4, 12, 4],  uv: [0, 16], inf: 1.0, mirror: true },
+    // inner face (toward the centerline) is not inflated, so the two boots
+    // meet at x=0 instead of overlapping through each other.
+    { box: [-4, 0, -2, 4, 12, 4], uv: [0, 16], inf: { x0: 1, x1: 0, y0: 1, y1: 1, z0: 1, z1: 1 } },
+    { box: [0, 0, -2, 4, 12, 4],  uv: [0, 16], inf: { x0: 0, x1: 1, y0: 1, y1: 1, z0: 1, z1: 1 }, mirror: true },
   ],
 };
 
@@ -316,6 +326,7 @@ function createViewer(canvas) {
 
   let raf;
   (function loop(t) { draw(t || 0); raf = requestAnimationFrame(loop); })();
+  canvas.__draw = draw; // TEMP harness hook
 
   // Stable canvas per texture path — keeps the GPU texture cache bounded
   // (texCache is keyed by source object, so each source must be created once).
