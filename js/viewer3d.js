@@ -101,8 +101,11 @@ function addBox(group, o) {
   const faces = [
     ["front",  [B, A, E, F]],
     ["back",   [D, C, G, H]],
-    ["right",  [A, D, H, E]],   // -X side (model's right)
-    ["left",   [C, B, F, G]],   // +X side
+    // Side faces run front->back along U per Minecraft's box-UV net: the -X
+    // (right) region's front edge is its far/right column, the +X (left)
+    // region's front edge is its near/left column. Corner order encodes that.
+    ["right",  [D, A, E, H]],   // -X side (model's right)
+    ["left",   [B, C, G, F]],   // +X side
     ["top",    [D, C, B, A]],
     ["bottom", [E, F, G, H]],
   ];
@@ -326,7 +329,6 @@ function createViewer(canvas) {
 
   let raf;
   (function loop(t) { draw(t || 0); raf = requestAnimationFrame(loop); })();
-  canvas.__draw = draw; // TEMP harness hook
 
   // Stable canvas per texture path — keeps the GPU texture cache bounded
   // (texCache is keyed by source object, so each source must be created once).
