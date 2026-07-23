@@ -491,7 +491,7 @@ function renderEditor() {
       };
       matBody.appendChild(applyAll);
     }
-    wrap.appendChild(section("Material", matBody));
+    wrap.appendChild(section("Material", matBody, mats[item.material]?.name));
   }
 
   // Item stats (live: reacts to material + enchant changes)
@@ -581,7 +581,9 @@ function renderEditor() {
       renderAll();
     };
     body.appendChild(applyTrim);
-    wrap.appendChild(section("Armor Trim", body));
+    wrap.appendChild(section("Armor Trim", body, item.trim
+      ? `${TRIM_PATTERNS[item.trim.pattern].name} · ${TRIM_MATERIALS[item.trim.material].name}`
+      : "None"));
   }
 
   // Enchantments
@@ -637,13 +639,57 @@ function renderEditor() {
     btns.appendChild(anvilBtn);
   }
   enchBody.appendChild(btns);
-  wrap.appendChild(section("Enchantments", enchBody));
+  const enchCount = Object.keys(item.enchants).length;
+  wrap.appendChild(section("Enchantments", enchBody,
+    enchCount ? `${enchCount} applied` : "None"));
 }
 
-function section(title, bodyNode) {
-  const s = el("div", "section");
-  s.appendChild(el("div", "section-title", title));
-  s.appendChild(bodyNode);
+// ----- Collapsible editor sections -----
+// The editor shows every control at once, which is a lot to take in on a first
+// visit. Sections start collapsed apart from the ones you need to pick an item;
+// a collapsed header still shows what is currently set, so nothing is hidden —
+// only deferred. Open/closed state is remembered per browser.
+const SECTIONS_KEY = "loadout-forge-sections";
+const SECTION_OPEN_BY_DEFAULT = new Set(["Equipment", "Material"]);
+
+let sectionOpen = (() => {
+  try { return JSON.parse(localStorage.getItem(SECTIONS_KEY)) || {}; }
+  catch { return {}; }
+})();
+
+function isSectionOpen(title) {
+  return title in sectionOpen ? !!sectionOpen[title] : SECTION_OPEN_BY_DEFAULT.has(title);
+}
+
+function setSectionOpen(title, open) {
+  sectionOpen[title] = open;
+  try { localStorage.setItem(SECTIONS_KEY, JSON.stringify(sectionOpen)); }
+  catch { /* private mode */ }
+}
+
+function section(title, bodyNode, summary) {
+  const open = isSectionOpen(title);
+  const s = el("div", "section" + (open ? "" : " collapsed"));
+
+  const head = el("button", "section-title");
+  head.type = "button";
+  head.setAttribute("aria-expanded", String(open));
+  head.appendChild(el("span", "section-name", title));
+  if (summary) head.appendChild(el("span", "section-summary", summary));
+
+  const body = el("div", "section-body");
+  body.appendChild(bodyNode);
+  body.hidden = !open;
+
+  head.onclick = () => {
+    const nowOpen = !s.classList.toggle("collapsed");
+    body.hidden = !nowOpen;
+    head.setAttribute("aria-expanded", String(nowOpen));
+    setSectionOpen(title, nowOpen);
+  };
+
+  s.appendChild(head);
+  s.appendChild(body);
   return s;
 }
 

@@ -4,7 +4,7 @@
     {
       "name": "loadout-forge",
       "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "http.server", "5173"],
+      "runtimeArgs": [".claude/serve.py"],
       "port": 5173
     }
   ]
