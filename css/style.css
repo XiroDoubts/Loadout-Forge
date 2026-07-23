@@ -141,15 +141,9 @@ canvas.pix { image-rendering: pixelated; display: block; }
 
 /* ---------- Layout ---------- */
 .layout {
-  --col-l: 312px;
-  --col-r: 380px;
-  --gutter: 18px;
   display: grid;
-  /* side columns are drag-resizable; the gutters double as the drag handles */
-  grid-template-columns:
-    var(--col-l) var(--gutter) minmax(300px, 1fr) var(--gutter) var(--col-r);
-  column-gap: 0;
-  row-gap: 18px;
+  grid-template-columns: 312px minmax(300px, 1fr) 380px;
+  gap: 18px;
   padding: 18px 22px;
   flex: 1;
   align-items: start;
@@ -157,33 +151,6 @@ canvas.pix { image-rendering: pixelated; display: block; }
   width: 100%;
   margin: 0 auto;
 }
-
-/* Drag handle sitting in the gutter between two panels. */
-.col-resize {
-  align-self: stretch;
-  min-height: 80px;
-  position: relative;
-  cursor: col-resize;
-  background: none;
-  border: 0;
-  padding: 0;
-  touch-action: none;
-}
-.col-resize::before {
-  content: "";
-  position: absolute;
-  top: 0; bottom: 0; left: 50%;
-  width: 4px;
-  transform: translateX(-50%);
-  border-radius: 2px;
-  background: transparent;
-  transition: background 120ms ease;
-}
-.col-resize:hover::before,
-.col-resize:focus-visible::before,
-.col-resize.dragging::before { background: var(--accent); }
-.col-resize:focus-visible { outline: none; }
-.layout.resizing { user-select: none; }
 
 .panel {
   background: var(--panel);
@@ -892,12 +859,9 @@ body.light .item-card-anvil { color: #b9a0e8; }
 .footer a { color: var(--accent); }
 
 /* ---------- Responsive ---------- */
-/* Below the 3-column layout the side columns stack, so resizing no longer
-   applies — the handles are hidden and the stored widths are ignored. */
 @media (max-width: 1080px) {
-  .layout { grid-template-columns: 1fr 1fr; column-gap: 18px; }
+  .layout { grid-template-columns: 1fr 1fr; }
   .col-preview { grid-column: 1 / -1; order: -1; }
-  .col-resize { display: none; }
 }
 
 @media (max-width: 680px) {

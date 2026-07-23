@@ -732,7 +732,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   wireSaveControls();
   wireViewControls();
   wireTheme();
-  initPanels();
   startGlintLoop();
   viewer = createViewer($("#viewer3d"));
   await loadBuildFromURL(); // shared link overrides the stored session
