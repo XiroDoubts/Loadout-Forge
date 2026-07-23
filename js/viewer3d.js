@@ -278,29 +278,93 @@ function createViewer(canvas) {
   }
 
   // camera
-  const cam = { yaw: 2.75, pitch: -0.12, dist: 78, target: [0, 17, 0], auto: true };
-  let lastPointer = null, lastInteract = 0;
+  const HOME = { yaw: 2.75, pitch: -0.12, dist: 78, target: [0, 17, 0] };
+  const cam = { ...HOME, target: [...HOME.target], auto: true };
+  const clampDist = d => Math.max(30, Math.min(110, d));
+
+  let lastInteract = 0;
+  const pointers = new Map();   // pointerId -> [x, y]
+  let dragMode = null;          // "rotate" | "pan"
+  const touched = () => { lastInteract = performance.now(); };
+
+  const pts = () => [...pointers.values()];
+  const midOf = p => [(p[0][0] + p[1][0]) / 2, (p[0][1] + p[1][1]) / 2];
+  const spanOf = p => Math.hypot(p[0][0] - p[1][0], p[0][1] - p[1][1]);
+
+  // World-space camera axes for the current yaw/pitch (rows of rotX(-pitch)·rotY(yaw)).
+  function camAxes() {
+    const cy = Math.cos(cam.yaw), sy = Math.sin(cam.yaw);
+    const cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
+    return { right: [cy, 0, sy], up: [-sp * sy, cp, sp * cy] };
+  }
+
+  // Slide the orbit target across the view plane so the model tracks the cursor.
+  // Scaled by distance so a drag covers the same screen distance at any zoom.
+  function pan(dx, dy) {
+    const { right, up } = camAxes();
+    const k = (2 * cam.dist * Math.tan(0.35)) / Math.max(1, canvas.clientHeight);
+    for (let i = 0; i < 3; i++) cam.target[i] += (up[i] * dy - right[i] * dx) * k;
+  }
 
   canvas.addEventListener("pointerdown", e => {
-    lastPointer = [e.clientX, e.clientY];
+    pointers.set(e.pointerId, [e.clientX, e.clientY]);
     canvas.setPointerCapture(e.pointerId);
+    // middle/right button or shift = pan; two fingers = pan + pinch zoom
+    if (pointers.size === 1)
+      dragMode = (e.button === 1 || e.button === 2 || e.shiftKey) ? "pan" : "rotate";
+    touched();
   });
+
   canvas.addEventListener("pointermove", e => {
-    if (!lastPointer) return;
-    cam.yaw += (e.clientX - lastPointer[0]) * 0.012;
-    cam.pitch += (e.clientY - lastPointer[1]) * 0.01;
-    cam.pitch = Math.max(-1.35, Math.min(1.35, cam.pitch));
-    lastPointer = [e.clientX, e.clientY];
-    lastInteract = performance.now();
+    if (!pointers.has(e.pointerId)) return;
+
+    if (pointers.size >= 2) {
+      const before = pts();
+      pointers.set(e.pointerId, [e.clientX, e.clientY]);
+      const after = pts();
+      const mBefore = midOf(before), mAfter = midOf(after);
+      pan(mAfter[0] - mBefore[0], mAfter[1] - mBefore[1]);
+      const sBefore = spanOf(before), sAfter = spanOf(after);
+      if (sBefore > 0 && sAfter > 0) cam.dist = clampDist(cam.dist * (sBefore / sAfter));
+      touched();
+      return;
+    }
+
+    const prev = pointers.get(e.pointerId);
+    const dx = e.clientX - prev[0], dy = e.clientY - prev[1];
+    pointers.set(e.pointerId, [e.clientX, e.clientY]);
+    if (dragMode === "pan") {
+      pan(dx, dy);
+    } else {
+      cam.yaw += dx * 0.012;
+      cam.pitch = Math.max(-1.35, Math.min(1.35, cam.pitch + dy * 0.01));
+    }
+    touched();
   });
-  canvas.addEventListener("pointerup", () => { lastPointer = null; });
+
+  const release = e => {
+    pointers.delete(e.pointerId);
+    if (pointers.size === 0) dragMode = null;
+  };
+  canvas.addEventListener("pointerup", release);
+  canvas.addEventListener("pointercancel", release);
+  // right-drag pans, so don't let the browser menu interrupt it
+  canvas.addEventListener("contextmenu", e => e.preventDefault());
+
+  // double-click recentres — panning can otherwise strand the model off-screen
+  canvas.addEventListener("dblclick", () => {
+    Object.assign(cam, { yaw: HOME.yaw, pitch: HOME.pitch, dist: HOME.dist });
+    cam.target = [...HOME.target];
+    touched();
+  });
+
   canvas.addEventListener("wheel", e => {
     // Zoom only with ctrl/cmd held (trackpad pinch sets ctrlKey too);
     // a plain scroll passes through so the page still scrolls normally.
     if (!e.ctrlKey && !e.metaKey) return;
     e.preventDefault();
-    cam.dist = Math.max(30, Math.min(110, cam.dist + e.deltaY * 0.06));
-    lastInteract = performance.now();
+    cam.dist = clampDist(cam.dist + e.deltaY * 0.06);
+    touched();
   }, { passive: false });
 
   function draw(t) {
