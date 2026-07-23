@@ -104,7 +104,7 @@ function addBox(group, o) {
     // Side faces run front->back along U per Minecraft's box-UV net: the -X
     // (right) region's front edge is its far/right column, the +X (left)
     // region's front edge is its near/left column. Corner order encodes that.
-    ["right",  [D, A, E, H]],   // -X side (model's right)
+    ["right",  [D, A, E, H]],   // -X side
     ["left",   [B, C, G, F]],   // +X side
     ["top",    [D, C, B, A]],
     ["bottom", [E, F, G, H]],
@@ -151,17 +151,21 @@ function addItemQuad(group, o) {
 }
 
 // ---------- part tables ----------
+// The model faces -Z, so the model's own RIGHT is +X and its LEFT is -X.
+// The skin's "right arm/leg" regions therefore belong on the +X boxes — that
+// keeps details that span the waist (belts, sashes) continuous from the body
+// onto the correct leg, and puts the model's right on the viewer's left.
 function playerParts(slim) {
   const aw = slim ? 3 : 4;              // arm width
-  const arx = slim ? -7 : -8;           // right arm x
+  const alx = slim ? -7 : -8;           // left arm x (-X side)
   return [
     // part: box params + skin uv + overlay uv
-    { box: [-4, 24, -4, 8, 8, 8],    uv: [0, 0],   ov: [32, 0],  ovInf: 0.55 },
-    { box: [-4, 12, -2, 8, 12, 4],   uv: [16, 16], ov: [16, 32], ovInf: 0.3 },
-    { box: [arx, 12, -2, aw, 12, 4], uv: [40, 16], ov: [40, 32], ovInf: 0.3 },
-    { box: [4, 12, -2, aw, 12, 4],   uv: [32, 48], ov: [48, 48], ovInf: 0.3, mirrorless: true },
-    { box: [-4, 0, -2, 4, 12, 4],    uv: [0, 16],  ov: [0, 32],  ovInf: 0.3 },
-    { box: [0, 0, -2, 4, 12, 4],     uv: [16, 48], ov: [0, 48],  ovInf: 0.3 },
+    { box: [-4, 24, -4, 8, 8, 8],    uv: [0, 0],   ov: [32, 0],  ovInf: 0.55 }, // head
+    { box: [-4, 12, -2, 8, 12, 4],   uv: [16, 16], ov: [16, 32], ovInf: 0.3 },  // body
+    { box: [4, 12, -2, aw, 12, 4],   uv: [40, 16], ov: [40, 32], ovInf: 0.3 },  // right arm (+X)
+    { box: [alx, 12, -2, aw, 12, 4], uv: [32, 48], ov: [48, 48], ovInf: 0.3 },  // left arm  (-X)
+    { box: [0, 0, -2, 4, 12, 4],     uv: [0, 16],  ov: [0, 32],  ovInf: 0.3 },  // right leg (+X)
+    { box: [-4, 0, -2, 4, 12, 4],    uv: [16, 48], ov: [0, 48],  ovInf: 0.3 },  // left leg  (-X)
   ];
 }
 
@@ -185,20 +189,20 @@ const ARMOR_BOXES = {
   ],
   chestplate: [
     { box: [-4, 12, -2, 8, 12, 4], uv: [16, 16], inf: 1.01 },
-    { box: [-8, 12, -2, 4, 12, 4], uv: [40, 16], inf: 1.0 },
-    { box: [4, 12, -2, 4, 12, 4],  uv: [40, 16], inf: 1.0, mirror: true },
+    { box: [4, 12, -2, 4, 12, 4],  uv: [40, 16], inf: 1.0 },                // right arm (+X)
+    { box: [-8, 12, -2, 4, 12, 4], uv: [40, 16], inf: 1.0, mirror: true },  // left arm  (-X)
   ],
   leggings: [
     { box: [-4, 12, -2, 8, 12, 4], uv: [16, 16], inf: 0.51 },
     // legs inflate outward but not across the centerline (inner face inf 0)
-    { box: [-4, 0, -2, 4, 12, 4],  uv: [0, 16],  inf: { x0: 0.5, x1: 0, y0: 0.5, y1: 0.5, z0: 0.5, z1: 0.5 } },
-    { box: [0, 0, -2, 4, 12, 4],   uv: [0, 16],  inf: { x0: 0, x1: 0.5, y0: 0.5, y1: 0.5, z0: 0.5, z1: 0.5 }, mirror: true },
+    { box: [0, 0, -2, 4, 12, 4],   uv: [0, 16],  inf: { x0: 0, x1: 0.5, y0: 0.5, y1: 0.5, z0: 0.5, z1: 0.5 } },                 // right leg (+X)
+    { box: [-4, 0, -2, 4, 12, 4],  uv: [0, 16],  inf: { x0: 0.5, x1: 0, y0: 0.5, y1: 0.5, z0: 0.5, z1: 0.5 }, mirror: true },   // left leg (-X)
   ],
   boots: [
     // inner face (toward the centerline) is not inflated, so the two boots
     // meet at x=0 instead of overlapping through each other.
-    { box: [-4, 0, -2, 4, 12, 4], uv: [0, 16], inf: { x0: 1, x1: 0, y0: 1, y1: 1, z0: 1, z1: 1 } },
-    { box: [0, 0, -2, 4, 12, 4],  uv: [0, 16], inf: { x0: 0, x1: 1, y0: 1, y1: 1, z0: 1, z1: 1 }, mirror: true },
+    { box: [0, 0, -2, 4, 12, 4],  uv: [0, 16], inf: { x0: 0, x1: 1, y0: 1, y1: 1, z0: 1, z1: 1 } },                // right boot (+X)
+    { box: [-4, 0, -2, 4, 12, 4], uv: [0, 16], inf: { x0: 1, x1: 0, y0: 1, y1: 1, z0: 1, z1: 1 }, mirror: true },  // left boot  (-X)
   ],
 };
 
