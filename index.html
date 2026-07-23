@@ -45,6 +45,9 @@
       <p class="inv-hint">Click a slot to equip &amp; edit · × removes</p>
     </aside>
 
+    <button class="col-resize" data-resize="left" type="button"
+            aria-label="Resize loadout panel (arrow keys adjust, double-click resets)"></button>
+
     <!-- Preview -->
     <section class="panel col-preview">
       <h2 class="panel-title">Preview</h2>
@@ -67,6 +70,9 @@
       </div>
       <div id="preview-cards" class="card-grid"></div>
     </section>
+
+    <button class="col-resize" data-resize="right" type="button"
+            aria-label="Resize editor panel (arrow keys adjust, double-click resets)"></button>
 
     <!-- Editor -->
     <aside class="panel col-editor">
@@ -91,6 +97,7 @@
   <script src="js/guis.js"></script>
   <script src="js/viewer3d.js"></script>
   <script src="js/dialogs.js"></script>
+  <script src="js/panels.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
