@@ -783,7 +783,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   await loadBuildFromURL(); // shared link overrides the stored session
   renderAll();
   $("#btn-assets").onclick = () => openJarImporter(false);
+  $("#btn-tour").onclick = () => startTour();
+  // Importing textures comes first — don't stack a tour on that dialog.
   if (await assetsMissing()) openJarImporter(true);
+  else maybeStartTour();
 
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;

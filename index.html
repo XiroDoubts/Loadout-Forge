@@ -71,7 +71,17 @@
     <!-- Editor -->
     <aside class="panel col-editor">
       <h2 class="panel-title">Editor</h2>
-      <p id="editor-empty" class="hint">Nothing selected — the preview shows every equipped item. Click a slot (or a card) to edit it; click it again or press Esc to come back here.</p>
+      <div id="editor-empty" class="empty-guide">
+        <p class="empty-lead">Nothing selected yet — here's the flow:</p>
+        <ol class="empty-steps">
+          <li><b>Click a slot</b> in Loadout to equip a piece</li>
+          <li><b>Pick a material</b> — iron, diamond, netherite…</li>
+          <li><b>Add a trim</b> and enchantments to finish it</li>
+        </ol>
+        <p class="empty-note">The preview shows everything you've equipped. Click a slot again, or press
+          <kbd>Esc</kbd>, to come back here.</p>
+        <button id="btn-tour" class="btn small" type="button">Show me around</button>
+      </div>
       <div id="editor-body"></div>
     </aside>
   </main>
@@ -91,6 +101,7 @@
   <script src="js/guis.js"></script>
   <script src="js/viewer3d.js"></script>
   <script src="js/dialogs.js"></script>
+  <script src="js/onboarding.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
