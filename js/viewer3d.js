@@ -171,13 +171,22 @@ function playerParts(slim) {
 
 // Vanilla ArmorStandModel part positions (armorstand.png, 64x64).
 // Real stands have no visible arms and a gap between the body sticks.
+//
+// KNOWN ISSUE: unlike playerParts, these left/right regions have NOT been
+// checked against the model's own left/right (model faces -Z, so its right is
+// +X). The pairs below may be swapped the same way the player limbs were.
+// It is invisible today because armorstand.png is near-symmetric — the sticks
+// carry no side-specific detail — and equipped armor comes from ARMOR_BOXES,
+// which is correct, so armor renders right on the stand either way.
+// Fix this before relying on stand part sides, or if a resource pack ships a
+// stand texture with asymmetric detail (it would then appear on the wrong side).
 const STAND_PARTS = [
   { box: [-6, 0, -6, 12, 1, 12],   uv: [0, 32] },  // base plate
-  { box: [-2.9, 1, -1, 2, 11, 2],  uv: [8, 0] },   // right leg
-  { box: [0.9, 1, -1, 2, 11, 2],   uv: [40, 16] }, // left leg
+  { box: [-2.9, 1, -1, 2, 11, 2],  uv: [8, 0] },   // right leg (unverified side)
+  { box: [0.9, 1, -1, 2, 11, 2],   uv: [40, 16] }, // left leg  (unverified side)
   { box: [-4, 12, -1, 8, 2, 2],    uv: [0, 48] },  // waist bar
-  { box: [-3, 14, -1, 2, 7, 2],    uv: [16, 0] },  // right body stick
-  { box: [1, 14, -1, 2, 7, 2],     uv: [48, 16] }, // left body stick
+  { box: [-3, 14, -1, 2, 7, 2],    uv: [16, 0] },  // right body stick (unverified side)
+  { box: [1, 14, -1, 2, 7, 2],     uv: [48, 16] }, // left body stick  (unverified side)
   { box: [-6, 21, -1.5, 12, 3, 3], uv: [0, 26] },  // shoulder bar
   { box: [-1, 24, -1, 2, 7, 2],    uv: [0, 0] },   // neck/head stick
 ];
