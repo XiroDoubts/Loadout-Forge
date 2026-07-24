@@ -34,7 +34,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # The client jar is immutable per version, so cache it across runs and
+      # skip the ~40 MB download when the version is unchanged.
+      - name: Cache the Minecraft client jar
+        id: jar-cache
+        uses: actions/cache@v4
+        with:
+          path: client.jar
+          key: mc-client-${{ env.MC_VERSION }}
+
       - name: Download the official Minecraft client jar
+        if: steps.jar-cache.outputs.cache-hit != 'true'
         run: |
           set -euo pipefail
           MANIFEST="https://piston-meta.mojang.com/mc/game/version_manifest_v2.json"
@@ -52,10 +62,11 @@ jobs:
           ls -lh client.jar
 
       - name: Extract the textures the app needs
+        # Keep client.jar in place afterwards so the cache can save it; it is
+        # never copied into the published site.
         run: |
           set -euo pipefail
           bash extract-assets.sh "$PWD/client.jar"
-          rm -f client.jar
 
       - name: Verify critical textures were extracted
         run: |
