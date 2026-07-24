@@ -1,4 +1,4 @@
-#!/bin/zsh
+#!/usr/bin/env bash
 # Extracts the textures Loadout Forge needs from a locally installed
 # Minecraft: Java Edition jar (your own licensed copy).
 #
@@ -59,9 +59,9 @@ unzip -o -q "$JAR" \
   "assets/minecraft/textures/entity/equipment/humanoid/*" \
   "assets/minecraft/textures/entity/equipment/humanoid_leggings/*" \
   "assets/minecraft/textures/entity/equipment/wings/elytra.png" \
-  "assets/minecraft/textures/entity/player/*" \
+  "assets/minecraft/textures/entity/player/**" \
   "assets/minecraft/textures/entity/armorstand/*" \
-  "assets/minecraft/textures/trims/*" \
+  "assets/minecraft/textures/trims/**" \
   -d .
 
 for f in sword spear pickaxe axe shovel hoe; do

@@ -1,0 +1,98 @@
+name: Deploy to GitHub Pages
+
+# Publishes the app to GitHub Pages. The game textures are NOT stored in the
+# repo (they aren't ours to redistribute); instead this workflow downloads the
+# official Minecraft client jar from Mojang at build time, extracts just the
+# textures the app needs, and bakes them into the published site. The repo
+# itself stays free of Mojang files.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      mc_version:
+        description: "Minecraft version to pull textures from"
+        default: "26.2"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time; a newer push supersedes an in-flight run.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+env:
+  MC_VERSION: ${{ github.event.inputs.mc_version || '26.2' }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download the official Minecraft client jar
+        run: |
+          set -euo pipefail
+          MANIFEST="https://piston-meta.mojang.com/mc/game/version_manifest_v2.json"
+          echo "Looking up Minecraft $MC_VERSION in Mojang's manifest…"
+          ver_url=$(curl -fsSL "$MANIFEST" | jq -r --arg v "$MC_VERSION" \
+            '.versions[] | select(.id==$v) | .url')
+          if [ -z "$ver_url" ]; then
+            echo "::error::Version $MC_VERSION is not in the Mojang manifest."
+            echo "Set the version via the workflow's 'Run workflow' input, or edit MC_VERSION."
+            exit 1
+          fi
+          jar_url=$(curl -fsSL "$ver_url" | jq -r '.downloads.client.url')
+          echo "Downloading client jar…"
+          curl -fsSL -o client.jar "$jar_url"
+          ls -lh client.jar
+
+      - name: Extract the textures the app needs
+        run: |
+          set -euo pipefail
+          bash extract-assets.sh "$PWD/client.jar"
+          rm -f client.jar
+
+      - name: Verify critical textures were extracted
+        run: |
+          set -euo pipefail
+          root="assets/minecraft/textures"
+          required=(
+            "$root/entity/equipment/humanoid/turtle_scute.png"
+            "$root/entity/equipment/humanoid_leggings/iron.png"
+            "$root/trims/entity/humanoid/flow.png"
+            "$root/trims/color_palettes/trim_palette.png"
+            "$root/entity/player/wide/steve.png"
+            "$root/item/diamond_chestplate.png"
+          )
+          missing=0
+          for f in "${required[@]}"; do
+            if [ -f "$f" ]; then echo "ok   $f"; else echo "MISS $f"; missing=1; fi
+          done
+          [ "$missing" -eq 0 ] || { echo "::error::extraction is incomplete"; exit 1; }
+          echo "Extracted $(find "$root" -name '*.png' | wc -l) textures."
+
+      - name: Assemble the site
+        run: |
+          set -euo pipefail
+          mkdir -p _site
+          cp -r index.html css js assets _site/
+          [ -f tests.html ] && cp tests.html _site/ || true
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
