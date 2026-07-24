@@ -197,8 +197,12 @@ const ARMOR_BOXES = {
   ],
   chestplate: [
     { box: [-4, 12, -2, 8, 12, 4], uv: [16, 16], inf: 1.01 },
-    { box: [-8, 12, -2, 4, 12, 4], uv: [40, 16], inf: 1.0 },                // right arm (-X)
-    { box: [4, 12, -2, 4, 12, 4],  uv: [40, 16], inf: 1.0, mirror: true },  // left arm  (+X)
+    // arms inflate a hair more than the body (1.02 > 1.01) so they sit just in
+    // front of it — otherwise the body's shoulder clips the inner pixel of the
+    // sleeve, showing only 3 of its 4px. (Nudging the arm outward in X instead
+    // would expose the skin arm underneath.)
+    { box: [-8, 12, -2, 4, 12, 4], uv: [40, 16], inf: 1.02 },                // right arm (-X)
+    { box: [4, 12, -2, 4, 12, 4],  uv: [40, 16], inf: 1.02, mirror: true },  // left arm  (+X)
   ],
   leggings: [
     { box: [-4, 12, -2, 8, 12, 4], uv: [16, 16], inf: 0.51 },
